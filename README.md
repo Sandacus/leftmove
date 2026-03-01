@@ -2,7 +2,7 @@
 
 This program aims to provide an automated polling of [Rightmove](https://www.rightmove.co.uk)[^1] for properties that meet the deisred specification.
 
-[^1] Rightmove is the main property listing website in the UK.
+[^1]: Rightmove is the main property listing website in the UK.
 
 ## Design
 
