@@ -73,3 +73,18 @@ Then inspecting the page dropdown element we can see that this is populated base
 ```
 
 So, we can grab all the option values from the first page, parse out the option values (avoid hardcoding page=25 results) and then loop over the option values, withget requests for each options value.
+
+
+### Results count
+
+The results page gives a total results count, see html snippet below.
+
+```html
+<div class="ResultsCount_resultsCount__Kqeah">
+  <p>
+    <span>27</span> results
+  </p>
+</div>
+```
+
+This could be useful for writing a less flaky ingegration test for capturing result hyperlinks.

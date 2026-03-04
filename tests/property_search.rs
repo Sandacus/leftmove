@@ -6,45 +6,57 @@ const URL: &str = "https://www.rightmove.co.uk/property-for-sale/find.html?";
 const POSTCODE: &str = "searchLocation=SW1A+2AA";
 const USE_LOCATION_IDENTIFIER: &str = "&useLocationIdentifier=true";
 const LOCATION_IDENTIFIER: &str = "&locationIdentifier=POSTCODE%5E1246000";
-const RADIUS: &str = "&radius=1.0";
-// const MIN_PRICE: &str = "&minPrice=10000";
-// const MAX_PRICE: &str = "&maxPrice=180000";
-// const MIN_BEDROOMS: &str = "&minBedrooms=0";
-// const MAX_BEDROOMS: &str = "&maxBedrooms=6";
-// const INCLUDESSTC: &str = "&_includeSSTC=on";
-// Query params
-// ----------------------
-// searchLocation=SW1A+2AA
-// useLocationIdentifier=true
-// locationIdentifier=POSTCODE%5E322455
-// radius=3.0
-// minPrice=50000
-// maxPrice=170000
-// minBedrooms=0
-// maxBedrooms=6
-// _includeSSTC=on
+const RADIUS: &str = "&radius=0.25";
+const MIN_PRICE: &str = "&minPrice=100000";
+const MAX_PRICE: &str = "&maxPrice=10000000";
+const MIN_BEDROOMS: &str = "&minBedrooms=0";
+const MAX_BEDROOMS: &str = "&maxBedrooms=6";
+const INCLUDESSTC: &str = "&_includeSSTC=on";
 
-// let search_url = format!("{}{}{}{}{}{}{}{}{}{}",
-//     URL,
-//     POSTCODE,
-//     USE_LOCATION_IDENTIFIER,
-//     LOCATION_IDENTIFIER,
-//     RADIUS,
-//     MIN_PRICE,
-//     MAX_PRICE,
-//     MIN_BEDROOMS,
-//     MAX_BEDROOMS,
-//     INCLUDESSTC
-// );
-
-fn get_rightmove_properties() -> Result<Vec<String>, Box<dyn std::error::Error>> {
+fn get_number_of_properties() -> Result<usize, Box<dyn std::error::Error>> {
     let search_url = format!(
-        "{}{}{}{}{}",
-        URL, POSTCODE, USE_LOCATION_IDENTIFIER, LOCATION_IDENTIFIER, RADIUS
+        "{URL}{POSTCODE}{USE_LOCATION_IDENTIFIER}{LOCATION_IDENTIFIER}{RADIUS}{MIN_PRICE}{MAX_PRICE}{MIN_BEDROOMS}{MAX_BEDROOMS}{INCLUDESSTC}" 
     );
 
     // Fetch HTML
-    let body: String = ureq::get(search_url).call()?.body_mut().read_to_string()?;
+    let body: String = ureq::get(search_url.clone()).call()?.body_mut().read_to_string()?;
+
+    // Parse HTML
+    let document = Html::parse_document(&body);
+    
+    // CSS selector for the anchor elements
+    let selector =
+        Selector::parse(r#"div[class^="ResultsCount_resultsCount"] span"#).expect("Invalid selector");
+    
+    let element = document
+        .select(&selector)
+        .next()
+        .ok_or("results count element not found")?;
+
+    let text = element
+        .text()
+        .next();
+        // .ok_or("results count text missing")?;
+
+    
+    let count = match text {
+        Some(text) => text.trim().parse::<usize>()?,
+        None => 0usize,
+    };
+
+    Ok(count)
+
+    // Ok(0)
+
+}
+
+fn get_rightmove_properties() -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    let search_url = format!(
+        "{URL}{POSTCODE}{USE_LOCATION_IDENTIFIER}{LOCATION_IDENTIFIER}{RADIUS}{MIN_PRICE}{MAX_PRICE}{MIN_BEDROOMS}{MAX_BEDROOMS}{INCLUDESSTC}" 
+    );
+
+    // Fetch HTML
+    let body: String = ureq::get(search_url.clone()).call()?.body_mut().read_to_string()?;
 
     // Extract page indices
     let indices = extract_page_indices(&body);
@@ -55,8 +67,7 @@ fn get_rightmove_properties() -> Result<Vec<String>, Box<dyn std::error::Error>>
     // const INDEX: &str = "&index=0";
     for index in indices {
         let url = format!(
-            "{}{}{}{}{}&index={}",
-            URL, POSTCODE, USE_LOCATION_IDENTIFIER, LOCATION_IDENTIFIER, RADIUS, index
+            "{search_url}&index={index}"
         );
         
         // Fetch HTML
@@ -78,8 +89,6 @@ fn get_rightmove_properties() -> Result<Vec<String>, Box<dyn std::error::Error>>
     
     // Convert to Vec if needed
     let unique_hrefs: Vec<String> = hrefs.into_iter().collect();
-
-    dbg!("{:#?}", &unique_hrefs);
 
     Ok(unique_hrefs)
 }
@@ -111,8 +120,15 @@ fn test_search_rightmove_properties() {
     
     let homes = match get_rightmove_properties() {
         Ok(homes) => homes,
-        Err(e) => panic!("{e}"),
+        Err(e) => panic!("Failed to get properties with error: {e}"),
     };
 
-    assert_eq!(homes.len(), 111);
+    let results = match get_number_of_properties() {
+        Ok(r) => r,
+        Err(e) => panic!("Someting went wrong: {e}"),
+    };
+
+    dbg!("Results expected: {:#?}", &results);
+
+    assert_eq!(homes.len(), results);
 }
